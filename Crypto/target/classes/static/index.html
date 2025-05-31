@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Casdoor Login (Token in Cookie)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f0f0f0;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+    .crypto {
+      padding: 10px;
+      margin-bottom: 5px;
+      border: 1px solid #ccc;
+    }
+    .up {
+      background-color: #c8e6c9;
+    }
+    .down {
+      background-color: #ffcdd2;
+    }
+    .neutral {
+      background-color: #eeeeee;
+    }
+  </style>
+</head>
+<body>
+<h2>Casdoor Login (Token in Cookie)</h2>
+<div id="status">Disconnected from WebSocket</div>
+<button onclick="location.href='/login'">Login with Casdoor</button>
+<button onclick="getUserInfo()">Get User Info</button>
+
+<h3>Cryptocurrency Updates</h3>
+<button onclick="subscribeToUpdates()">Subscribe to Updates</button>
+
+<div id="cryptoContainer">
+  <div id="XRP" class="crypto neutral">XRP: $--</div>
+  <div id="DOGE" class="crypto neutral">DOGE: $--</div>
+  <div id="BTC" class="crypto neutral">BTC: $--</div>
+  <div id="ETH" class="crypto neutral">ETH: $--</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+<script>
+  let stompClient = null;
+  const lastPrices = {};
+
+  function connectWebSocket() {
+    const socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+    stompClient.connect({}, function (frame) {
+      document.getElementById('status').textContent = "Connected to WebSocket";
+      stompClient.subscribe('/topic/crypto', function (data) {
+        const payload = JSON.parse(data.body);
+        const symbol = payload.symbol;
+        const price = parseFloat(payload.price);
+        const time = payload.time;
+        const element = document.getElementById(symbol);
+
+        let className = "neutral";
+        if (lastPrices[symbol]) {
+          if (price > lastPrices[symbol]) className = "up";
+          else if (price < lastPrices[symbol]) className = "down";
+        }
+
+        element.className = "crypto " + className;
+        element.textContent = `${symbol}: $${price.toFixed(4)} (${time})`;
+        lastPrices[symbol] = price;
+      });
+    });
+  }
+
+  function subscribeToUpdates() {
+    if (!stompClient || !stompClient.connected) {
+      connectWebSocket();
+    }
+  }
+
+  async function getUserInfo() {
+    const res = await fetch('/userinfo');
+    if (res.ok) {
+      const data = await res.json();
+      document.getElementById('status').textContent = "Logged in";
+    } else {
+      document.getElementById('status').textContent = "Not logged in";
+    }
+  }
+
+  getUserInfo();
+</script>
+</body>
+</html>
